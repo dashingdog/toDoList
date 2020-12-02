@@ -1,5 +1,6 @@
 const path = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 const isDev = process.env.NODE_ENV === 'development';
 const webpack = require('webpack');
@@ -52,26 +53,35 @@ const config = {
     }),
     new VueLoaderPlugin(),
     new HTMLPlugin(),
-    new MiniCssExtractPlugin(),
+    // 每次打包清除上次的打包文件
+    new CleanWebpackPlugin(),
+    new MiniCssExtractPlugin({
+      filename: '[name].[hash:8].css',
+    }),
   ],
 };
 if (isDev) {
   config.module.rules.push({
     test: /\.styl(us)?$/,
-    use: ['vue-style-loader', {
-      loader: 'css-loader',
-      options: {
-        // 这里有个坑，css-loader的esModule如果不设置成false,将无法生效
-        // css-loader4.0后默认对esModule设置的是true
-        // vue-style-loader默认接收的是commonjs的结果，也就是默认接收的是“css-loader中esModule设置的是false的结果”
-        esModule: false,
+    use: [
+      'vue-style-loader',
+      {
+        loader: 'css-loader',
+        options: {
+          // 这里有个坑，css-loader的esModule如果不设置成false,将无法生效
+          // css-loader4.0后默认对esModule设置的是true
+          // vue-style-loader默认接收的是commonjs的结果，也就是默认接收的是“css-loader中esModule设置的是false的结果”
+          esModule: false,
+        },
       },
-    }, {
-      loader: 'postcss-loader',
-      options: {
-        sourceMap: true,
+      {
+        loader: 'postcss-loader',
+        options: {
+          sourceMap: true,
+        },
       },
-    }, 'stylus-loader'],
+      'stylus-loader',
+    ],
   });
   // 控制是否生成，以及如何生成 source map
   config.devtool = 'eval-cheap-module-source-map';
@@ -94,19 +104,40 @@ if (isDev) {
     new webpack.NoEmitOnErrorsPlugin(),
   );
 } else {
+  config.entry = {
+    app: path.join(__dirname, 'src/index.js'),
+    vendor: ['vue'],
+  };
+  config.output.filename = '[name].[chunkhash:8].js';
   config.module.rules.push({
     test: /\.styl(us)?$/,
-    use: [{
-      loader: MiniCssExtractPlugin.loader,
-      options: {
-        publicPath: '',
+    use: [
+      {
+        loader: MiniCssExtractPlugin.loader,
+        options: {
+          publicPath: '',
+        },
       },
-    }, 'css-loader', {
-      loader: 'postcss-loader',
-      options: {
-        sourceMap: true,
+      'css-loader',
+      {
+        loader: 'postcss-loader',
+        options: {
+          sourceMap: true,
+        },
       },
-    }, 'stylus-loader'],
+      'stylus-loader',
+    ],
   });
+  config.optimization = {
+    splitChunks: {
+      cacheGroups: {
+        commons: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+      },
+    },
+  };
 }
 module.exports = config;
