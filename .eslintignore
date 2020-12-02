@@ -1,0 +1,6 @@
+.vscode
+dist/
+public/
+node_modules/
+logs/
+log/
